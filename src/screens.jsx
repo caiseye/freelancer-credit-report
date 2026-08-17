@@ -610,6 +610,33 @@ const CardFlow = ({ onMore }) => {
         <KV k="들쭉날쭉한 정도" v={`${D.CV.toFixed(1)}%`} sub={D.CV < 25 ? "25%보다 낮으면 안정적이에요" : "안정 기준 25%를 넘었어요"}
           color={D.CV < 25 ? T.g900 : T.amber} />
       </div>
+
+      {/* 어느 플랫폼에서 벌었는지는 카드에서 바로 보여요 */}
+      <div className="mt-5">
+        <div className="flex items-baseline justify-between gap-3 mb-3">
+          <Label color={T.g700}>어디서 벌었나요</Label>
+          <span className="text-[12px]" style={{ color: D.TOP_SHARE > 70 ? T.amber : T.g500 }}>
+            가장 큰 곳 {D.TOP_SHARE}%
+          </span>
+        </div>
+        <div className="space-y-2.5">
+          {D.PLATFORMS.map((p, i) => {
+            const sh = (p.amt / D.PLATFORM_SUM) * 100;
+            return (
+              <div key={p.name}>
+                <div className="flex items-center justify-between gap-3 text-[13px] mb-1">
+                  <span className="font-semibold truncate" style={{ color: T.g800 }}>{p.name}</span>
+                  <span className="tnum font-bold shrink-0" style={{ color: T.g600 }}>
+                    {eok(p.amt)}원 · {sh.toFixed(1)}%
+                  </span>
+                </div>
+                <Meter pct={sh} h={5} delay={i * 0.04} track={T.g100}
+                  color={i === 0 ? (sh > 70 ? T.amber : T.blue) : "#9CC7FA"} />
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </Card>
   );
 };

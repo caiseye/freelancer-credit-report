@@ -2,9 +2,10 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Smartphone, Monitor, ChevronRight, FlaskConical, ArrowLeft,
   ShieldCheck, ShieldAlert, TrendingDown, Clock, Scale, AlertTriangle,
+  Bike, Car, PieChart, TriangleAlert,
 } from "lucide-react";
 import { T, TONE, FONT, eok, useWide } from "./core.js";
-import { SCENARIOS, getData, DEFAULT_SCENARIO } from "./scenarios.js";
+import { SCENARIOS, SCENARIO_GROUPS, getData, DEFAULT_SCENARIO } from "./scenarios.js";
 import { AppCtx, GlobalStyle, Shell } from "./ui.jsx";
 import {
   ScreenIntro, ScreenConsent, ScreenAuth, ScreenCollect,
@@ -24,6 +25,7 @@ const STEPS = [
 const ICONS = {
   normal: ShieldCheck, fds_alert: ShieldAlert, income_down: TrendingDown,
   thin_file: Clock, high_dsr: Scale,
+  rider_good: Bike, rider_bad: TriangleAlert, rider_dual: Car, rider_single: PieChart,
 };
 
 function parseHash() {
@@ -119,9 +121,15 @@ function Picker({ onOpen }) {
         </div>
 
         {/* 케이스 */}
-        <div className="text-[13px] font-bold mt-9 mb-3" style={{ color: T.g500 }}>테스트 케이스 {SCENARIOS.length}가지</div>
+        <div className="text-[13px] font-bold mt-9" style={{ color: T.g500 }}>테스트 케이스 {SCENARIOS.length}가지</div>
+        {SCENARIO_GROUPS.map((grp) => (
+        <div key={grp.k} className="mt-5">
+        <div className="flex items-baseline gap-2 mb-3">
+          <span className="text-[15px] font-bold" style={{ color: T.g900 }}>{grp.k}</span>
+          <span className="text-[12px]" style={{ color: T.g400 }}>{grp.items.length}가지</span>
+        </div>
         <div style={{ display: "grid", gridTemplateColumns: wide ? "repeat(auto-fit, minmax(320px, 1fr))" : "1fr", gap: 14 }}>
-          {SCENARIOS.map((s, i) => {
+          {grp.items.map((s, i) => {
             const D = getData(s.id);
             const c = TONE[s.tone];
             const Icon = ICONS[s.id] || ShieldCheck;
@@ -167,6 +175,8 @@ function Picker({ onOpen }) {
             );
           })}
         </div>
+        </div>
+        ))}
 
         <p className="text-[12px] mt-8 leading-relaxed" style={{ color: T.g400 }}>
           주소창에 상태가 남아요. <code style={{ background: T.g100, padding: "1px 5px", borderRadius: 4 }}>#/fds_alert/web/5</code> 처럼

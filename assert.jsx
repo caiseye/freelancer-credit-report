@@ -2,7 +2,7 @@
    렌더가 죽지 않는 것과, 케이스가 화면에 반영되는 건 다른 문제라서요. */
 import React from "react";
 import { renderToString } from "react-dom/server";
-import { getData } from "./src/scenarios.js";
+import { getData, SCENARIOS, SCENARIO_GROUPS } from "./src/scenarios.js";
 import { AppCtx } from "./src/ui.jsx";
 import { ScreenReport, SubmitFlow, ScreenAuth } from "./src/screens.jsx";
 import { IDPS } from "./src/idps.js";
@@ -227,3 +227,74 @@ const bad4 = checks.filter((c) => !c.ok);
 console.log(`\n[4차] 검증 ${checks.length}건 중 통과 ${checks.length - bad4.length}건`);
 if (bad4.length) { bad4.forEach((c) => console.log("  \u2717 " + c.label)); process.exit(1); }
 console.log("제출처 구성 확인");
+
+
+/* ── 11 · 배달 라이더 케이스 ── */
+{
+  const r11 = [];
+  const RIDERS = ["rider_good", "rider_bad", "rider_dual", "rider_single"];
+
+  /* 배달 플랫폼이 실제로 리포트에 나와야 함 */
+  const PLATFORMS = ["배민커넥트", "쿠팡이츠", "요기요", "땡겨요"];
+  for (const id of RIDERS) {
+    for (const mode of ["app", "web"]) {
+      const h = strip(render(id, mode, ScreenReport));
+      PLATFORMS.forEach((p) => {
+        const D = getData(id);
+        if (D.PLATFORMS.some((x) => x.name === p) && !h.includes(p)) {
+          r11.push(`${id}/${mode} — 플랫폼 "${p}" 미표시`);
+        }
+      });
+      /* 앱은 공공서류를 시트에 접어두므로 문서형(웹)에서만 확인 */
+      if (mode === "web" && !h.includes("산재보험")) r11.push(`${id} — 산재보험 서류 없음`);
+    }
+  }
+
+  /* 케이스별 고유 특성이 화면에 드러나는지 */
+  const good = strip(render("rider_good", "app", ScreenReport));
+  if (!good.includes("배달 완료율")) r11.push("우량 — 완료율 지표 없음");
+  if (!good.includes("오세준")) r11.push("우량 — 대상자 없음");
+
+  const bad = strip(render("rider_bad", "app", ScreenReport));
+  if (!bad.includes("지표 불안정")) r11.push("불안정 — 판정 라벨 없음");
+  if (!bad.includes("취소 1,140건")) r11.push("불안정 — 취소 건수 없음");
+  if (!bad.includes("참고 한도를 산출하지 않아요")) r11.push("불안정 — 한도 미산출 안내 없음");
+
+  const dual = strip(render("rider_dual", "app", ScreenReport));
+  if (!dual.includes("카카오T 대리")) r11.push("겸업 — 대리 플랫폼 없음");
+  if (!dual.includes("대리운전")) r11.push("겸업 — 대리운전 표기 없음");
+  if (!dual.includes("25.8일")) r11.push("겸업 — 운행 강도 고지 없음");
+
+  const single = strip(render("rider_single", "app", ScreenReport));
+  if (!single.includes("수입원 집중")) r11.push("집중 — 판정 라벨 없음");
+  if (!single.includes("88")) r11.push("집중 — 집중도 수치 없음");
+
+  /* 집중도가 실제로 케이스를 가르는지 */
+  const cGood = getData("rider_good").TOP_SHARE, cSingle = getData("rider_single").TOP_SHARE;
+  if (!(cSingle > 80 && cGood < 55)) r11.push(`집중도 대비 실패 (분산 ${cGood}% vs 집중 ${cSingle}%)`);
+
+  /* 우량/불안정이 실제로 갈리는지 */
+  const g = getData("rider_good"), b = getData("rider_bad");
+  if (!(g.WDI > b.WDI + 30)) r11.push(`성실도 격차 부족 (${g.WDI} vs ${b.WDI})`);
+  if (!(g.CV < 15 && b.CV > 30)) r11.push(`변동성 대비 실패 (${g.CV}% vs ${b.CV}%)`);
+  if (g.CASH.deficit) r11.push("우량 라이더가 적자");
+  if (!b.CASH.deficit) r11.push("불안정 라이더가 흑자");
+
+  /* 선택 화면 그룹 */
+  const pick = strip(renderToString(<App />));
+  if (!pick.includes("배달 라이더")) r11.push("선택화면 — 라이더 그룹 없음");
+  if (!pick.includes("프리랜서")) r11.push("선택화면 — 프리랜서 그룹 없음");
+  RIDERS.forEach((id) => {
+    const nm = SCENARIOS.find((x) => x.id === id).name;
+    if (!pick.includes(nm)) r11.push(`선택화면 — "${nm}" 없음`);
+  });
+  if (SCENARIO_GROUPS.length !== 2) r11.push(`그룹이 ${SCENARIO_GROUPS.length}개`);
+
+  r11.forEach((r) => checks.push({ label: r, needle: "-", ok: false, want: true }));
+  if (!r11.length) checks.push({ label: `배달 라이더 4케이스 · 총 ${SCENARIOS.length}케이스`, needle: "-", ok: true, want: true });
+}
+
+const bad5 = checks.filter((c) => !c.ok);
+console.log(`\n[5차] 검증 ${checks.length}건 중 통과 ${checks.length - bad5.length}건`);
+if (bad5.length) { bad5.forEach((c) => console.log("  \u2717 " + c.label)); process.exit(1); }
+console.log("배달 라이더 케이스 확인");

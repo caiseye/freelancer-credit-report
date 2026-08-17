@@ -1,6 +1,7 @@
 import { T, sum, cv } from "./core.js";
 import { FINANCE } from "./finance.js";
 import { buildReview } from "./review.js";
+import { RIDER_SCENARIOS, RIDER_FINANCE } from "./riders.js";
 
 /* ════════════════════════════════════════════════════════════════
    테스트 시나리오 데이터
@@ -495,7 +496,9 @@ const HIGH_DSR = {
   },
 };
 
-const RAW = [NORMAL, FDS_ALERT, INCOME_DOWN, THIN_FILE, HIGH_DSR];
+const RAW = [NORMAL, FDS_ALERT, INCOME_DOWN, THIN_FILE, HIGH_DSR, ...RIDER_SCENARIOS];
+/* 여신·소비 데이터는 직군별 파일에 나뉘어 있어 하나로 합칩니다 */
+const ALL_FINANCE = { ...FINANCE, ...RIDER_FINANCE };
 
 /* ════════════════════════════════════════════════════════════════
    파생값 계산
@@ -551,7 +554,7 @@ function assemble(s) {
   const FDS_HITS = s.fdsRules.filter((r) => r.st !== "정상");
 
   /* ── 여신 · 소비 · 가처분소득 ─────────────────────────────── */
-  const F = FINANCE[s.id] || {};
+  const F = ALL_FINANCE[s.id] || {};
   const CREDIT = F.credit || null;
   const SPEND = F.spend || null;
 
@@ -624,6 +627,7 @@ function assemble(s) {
   const out = {
     /* 시나리오 메타 */
     id: s.id, name: s.name, short: s.short, tone: s.tone, desc: s.desc,
+    group: s.group || "프리랜서",
     verdict: s.verdict, dataGaps: s.dataGaps || null, blockSubmit: !!s.blockSubmit,
     EXCLUDED: s.excluded || null,
 
@@ -651,9 +655,14 @@ function assemble(s) {
 /* 선택 화면에 뿌릴 요약 카드용 목록 */
 export const SCENARIOS = RAW.map((s) => ({
   id: s.id, name: s.name, short: s.short, tone: s.tone, desc: s.desc,
+  group: s.group || "프리랜서",
   who: `${s.me.name} · ${s.me.job.replace("프리랜서 · ", "")} · ${s.me.months}개월`,
   grade: s.verdict.grade,
 }));
+
+/* 선택 화면에서 직군별로 묶어 보여줍니다 */
+export const SCENARIO_GROUPS = [...new Set(SCENARIOS.map((s) => s.group))]
+  .map((g) => ({ k: g, items: SCENARIOS.filter((s) => s.group === g) }));
 
 const CACHE = {};
 export function getData(id) {
