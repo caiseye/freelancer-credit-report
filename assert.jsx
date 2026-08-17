@@ -6,6 +6,7 @@ import { getData } from "./src/scenarios.js";
 import { AppCtx } from "./src/ui.jsx";
 import { ScreenReport, SubmitFlow, ScreenAuth } from "./src/screens.jsx";
 import { IDPS } from "./src/idps.js";
+import { BANKS, BANK_CATS, FEATURED } from "./src/banks.js";
 import App from "./src/App.jsx";
 
 const noop = () => {};
@@ -186,3 +187,43 @@ const bad3 = checks.filter((c) => !c.ok);
 console.log(`\n[3차] 검증 ${checks.length}건 중 통과 ${checks.length - bad3.length}건`);
 if (bad3.length) { bad3.forEach((c) => console.log("  \u2717 " + c.label)); process.exit(1); }
 console.log("인증사업자 전체 + 중립 구성 확인");
+
+
+/* ── 10 · 제출처 ── */
+{
+  const r10 = [];
+  const pickSheet = strip(render("normal", "app", SubmitFlow));
+
+  /* 후원 기관 3곳은 주요 제출처로 먼저 보여야 함 */
+  ["하나은행", "신한은행", "카카오뱅크"].forEach((k) => {
+    if (!pickSheet.includes(k)) r10.push(`주요 제출처 "${k}" 누락`);
+  });
+  if (FEATURED.length !== 3) r10.push(`주요 제출처가 ${FEATURED.length}곳`);
+  if (!pickSheet.includes("주요 제출처")) r10.push("주요 제출처 구역 없음");
+
+  /* 전체 기관이 모두 렌더돼야 함 */
+  BANKS.forEach((b) => { if (!pickSheet.includes(b.k)) r10.push(`제출처 "${b.k}" 누락`); });
+  BANK_CATS.forEach((c) => { if (!pickSheet.includes(c.k)) r10.push(`업권 필터 "${c.k}" 누락`); });
+
+  /* 업권 커버리지 — 은행에만 쏠리지 않게 */
+  const cats = new Set(BANKS.map((b) => b.cat));
+  if (cats.size < 6) r10.push(`업권이 ${cats.size}종뿐`);
+  if (BANKS.length < 25) r10.push(`제출처가 ${BANKS.length}곳뿐`);
+
+  /* 기본 선택은 후원 3곳 */
+  ["하나은행", "신한은행", "카카오뱅크"].forEach((k) => {
+    if (!pickSheet.includes(k)) r10.push(`기본 선택 "${k}" 없음`);
+  });
+
+  /* id 중복 방지 */
+  const ids = BANKS.map((b) => b.id);
+  if (new Set(ids).size !== ids.length) r10.push("제출처 id 중복");
+
+  r10.forEach((r) => checks.push({ label: r, needle: "-", ok: false, want: true }));
+  if (!r10.length) checks.push({ label: `제출처 ${BANKS.length}곳 · ${cats.size}개 업권`, needle: "-", ok: true, want: true });
+}
+
+const bad4 = checks.filter((c) => !c.ok);
+console.log(`\n[4차] 검증 ${checks.length}건 중 통과 ${checks.length - bad4.length}건`);
+if (bad4.length) { bad4.forEach((c) => console.log("  \u2717 " + c.label)); process.exit(1); }
+console.log("제출처 구성 확인");

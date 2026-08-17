@@ -6,6 +6,7 @@ import {
   Landmark as Bank, CreditCard, PiggyBank, Receipt,
 } from "lucide-react";
 import { IDP_GROUPS, IDP_COUNT, findIdp } from "./idps.js";
+import { BANKS, BANK_CATS, BANK_COUNT, FEATURED } from "./banks.js";
 import { CashWaterfall, CreditTable, CreditStats, SpendBars, SpendFlags,
          ReviewPositions, Perspectives, ReviewLimits } from "./blocks.jsx";
 import { WebReport } from "./webreport.jsx";
@@ -1270,27 +1271,44 @@ export const ScreenReport = ({ onSubmit, submitted, onRestart }) => {
 /* ════════════════════════════════════════════════════════════════
    7 · 제출
    ════════════════════════════════════════════════════════════════ */
-const BANKS = [
-  { id: "kb", k: "KB국민은행", t: "여신심사부", bg: "#FFCC00", fg: "#4A3B00", m: "KB" },
-  { id: "sh", k: "신한은행", t: "개인여신센터", bg: "#0046FF", fg: "#fff", m: "신한" },
-  { id: "kko", k: "카카오뱅크", t: "비대면 심사", bg: "#FFE300", fg: "#3C1E1E", m: "카뱅" },
-  { id: "wel", k: "웰컴저축은행", t: "개인신용대출", bg: "#E8590C", fg: "#fff", m: "웰컴" },
-  { id: "kinfa", k: "서민금융진흥원", t: "햇살론뱅크", bg: "#0B7A5C", fg: "#fff", m: "햇살" },
-  { id: "hd", k: "현대캐피탈", t: "개인금융", bg: "#26282B", fg: "#fff", m: "HC" },
-];
 const PURPOSES = ["신용대출 신규", "전세자금대출", "사업자금 대출", "한도 상향"];
 const SEND_STEPS = ["문서 암호화", "전자서명 확인", "전자문서 전송", "수신 확인"];
 
 const BankMark = ({ b, size = 40 }) => (
   <span className="grid place-items-center rounded-[13px] shrink-0" style={{ width: size, height: size, background: b.bg }}>
-    <span className="font-bold" style={{ color: b.fg, fontSize: b.m.length > 2 ? size * 0.28 : size * 0.34 }}>{b.m}</span>
+    <span className="font-bold leading-none"
+      style={{ color: b.fg, fontSize: b.m.length >= 4 ? size * 0.22 : b.m.length === 3 ? size * 0.27 : size * 0.34 }}>{b.m}</span>
   </span>
+);
+
+/* 제출처 타일 — 기관 수가 많아 리스트 대신 격자로 놓습니다 */
+const BankTile = ({ b, on, onClick }) => (
+  <button onClick={onClick} aria-pressed={on}
+    className="press relative flex flex-col items-center justify-center gap-1.5 text-center"
+    style={{
+      padding: "12px 6px", borderRadius: 13, minHeight: 88,
+      background: on ? T.blueBg : T.white,
+      border: `1.5px solid ${on ? T.blue : T.g200}`,
+    }}>
+    {on && (
+      <span className="absolute grid place-items-center rounded-full"
+        style={{ top: 6, right: 6, width: 16, height: 16, background: T.blue }}>
+        <Check size={10} strokeWidth={3.5} color="#fff" />
+      </span>
+    )}
+    <BankMark b={b} size={30} />
+    <span className="min-w-0 w-full">
+      <span className="block text-[11.5px] font-bold leading-tight" style={{ color: T.g900 }}>{b.k}</span>
+      <span className="block text-[10px] mt-0.5 leading-tight truncate" style={{ color: T.g500 }}>{b.t}</span>
+    </span>
+  </button>
 );
 
 export const SubmitFlow = ({ onClose, onDone, already }) => {
   const D = useD();
   const [step, setStep] = useState(already ? "done" : D.blockSubmit ? "blocked" : "pick");
-  const [picked, setPicked] = useState(["kb", "kinfa"]);
+  const [picked, setPicked] = useState(["hana", "shinhan", "kakaobank"]);
+  const [cat, setCat] = useState("all");
   const [days, setDays] = useState(14);
   const [purpose, setPurpose] = useState(PURPOSES[0]);
   const [si, setSi] = useState(0);
@@ -1449,23 +1467,69 @@ export const SubmitFlow = ({ onClose, onDone, already }) => {
     </Sheet>
   );
 
+  /* 업권 필터로 한 번에 보이는 개수를 줄여, 시트가 길어지지 않게 합니다 */
+  const shown = cat === "all" ? BANKS : BANKS.filter((b) => b.cat === cat);
+  const toggle = (id) => setPicked((p) => p.includes(id) ? p.filter((x) => x !== id) : [...p, id]);
+
   return (
     <Sheet title="어디에 제출할까요?" onClose={onClose}>
-      <p className="text-[14px] leading-relaxed mb-2" style={{ color: T.g600 }}>여러 곳을 한 번에 고를 수 있어요.</p>
-      {BANKS.map((b) => {
-        const on = picked.includes(b.id);
-        return (
-          <button key={b.id} onClick={() => setPicked((p) => on ? p.filter((x) => x !== b.id) : [...p, b.id])}
-            aria-pressed={on} className="rowpress w-full flex items-center gap-3.5 py-3 text-left">
-            <BankMark b={b} />
-            <span className="flex-1 min-w-0">
-              <span className="block text-[15px] font-semibold" style={{ color: T.g900 }}>{b.k}</span>
-              <span className="block text-[13px] mt-0.5" style={{ color: T.g500 }}>{b.t}</span>
-            </span>
-            <Tick on={on} filled size={24} />
-          </button>
-        );
-      })}
+      <p className="text-[13.5px] leading-relaxed" style={{ color: T.g600 }}>
+        여신을 취급하는 {BANK_COUNT}곳에 보낼 수 있어요. 여러 곳을 한 번에 고를 수 있고,
+        고른 곳에만 전송돼요.
+      </p>
+
+      <div className="mt-4">
+        <Label color={T.g700}>주요 제출처</Label>
+        <div className="mt-2" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0,1fr))", gap: 8 }}>
+          {FEATURED.map((b) => (
+            <BankTile key={b.id} b={b} on={picked.includes(b.id)} onClick={() => toggle(b.id)} />
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-5">
+        <div className="flex items-center justify-between gap-3">
+          <Label color={T.g700}>전체 기관</Label>
+          <span className="text-[12px] font-bold" style={{ color: picked.length ? T.blue : T.g400 }}>
+            {picked.length}곳 선택
+          </span>
+        </div>
+
+        <div className="flex gap-1.5 mt-2.5 pb-1 noscroll" style={{ overflowX: "auto" }}>
+          {[{ id: "all", k: "전체" }, ...BANK_CATS].map((c) => {
+            const on = cat === c.id;
+            return (
+              <button key={c.id} onClick={() => setCat(c.id)} aria-pressed={on}
+                className="press shrink-0 rounded-[9px] px-2.5 py-1.5 text-[12.5px] font-bold"
+                style={{ background: on ? T.g900 : T.g100, color: on ? "#fff" : T.g600 }}>
+                {c.k}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* 높이를 고정해서 목록이 길어져도 시트가 늘어나지 않아요 */}
+        <div className="mt-3 pr-0.5" style={{ maxHeight: 268, overflowY: "auto" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0,1fr))", gap: 8 }}>
+            {shown.map((b) => (
+              <BankTile key={b.id} b={b} on={picked.includes(b.id)} onClick={() => toggle(b.id)} />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {chosen.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mt-4">
+          {chosen.map((b) => (
+            <button key={b.id} onClick={() => toggle(b.id)}
+              className="press inline-flex items-center gap-1 px-2 py-1 rounded-[8px] text-[12px] font-bold"
+              style={{ background: T.blueBg, color: T.blueD }}>
+              {b.k}<X size={12} strokeWidth={2.8} />
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="mt-5">
         <Btn disabled={!picked.length} onClick={() => setStep("confirm")}>
           {picked.length ? `${picked.length}곳 선택 완료` : "제출할 곳을 골라주세요"}
